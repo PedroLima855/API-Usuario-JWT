@@ -6,6 +6,8 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,13 +19,18 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.usuario.api.model.Usuario;
 import com.usuario.api.repository.UsuarioRepository;
+import com.usuario.api.service.ImplementacaoUserDetailsService;
 
+@CrossOrigin // Permite o acesso das requisições de todas as origens  
 @RestController
 @RequestMapping (value = "usuario")
 public class UsuarioController {
 	
 	@Autowired
 	private UsuarioRepository usuarioRepository;
+	
+	@Autowired
+	private ImplementacaoUserDetailsService implementacaoUserDetailsService;
 
 	// Consulta pelo ID
 	@GetMapping (value = "/{id}", produces = "application/json")
@@ -54,9 +61,14 @@ public class UsuarioController {
 			usuario.getTelefones().get(pos).setUsuario(usuario);
 		}
 		
-		Usuario salvar = usuarioRepository.save(usuario);
+		// Criptografa a senha
+		String senhacriptografada = new BCryptPasswordEncoder().encode(usuario.getSenha());
+		usuario.setSenha(senhacriptografada);
+		Usuario usuarioSalvo = usuarioRepository.save(usuario);
 		
-		return new ResponseEntity<Usuario>(salvar, HttpStatus.OK);
+		Usuario salvar = usuarioRepository.save(usuario);	
+		
+		return new ResponseEntity<Usuario>(salvar, HttpStatus.CREATED);
 		
 	}
 	
@@ -68,6 +80,14 @@ public class UsuarioController {
 		for (int pos = 0; pos < usuario.getTelefones().size(); pos ++ ) {
 					
 			usuario.getTelefones().get(pos).setUsuario(usuario);
+		}
+		
+		Usuario userTemporario = usuarioRepository.findById(usuario.getId()).get();
+		
+		// se a senha for diferente criptografa e salva
+		if (!userTemporario.getSenha().equals(usuario.getSenha())) { 
+			String senhacriptografada = new BCryptPasswordEncoder().encode(usuario.getSenha());
+			usuario.setSenha(senhacriptografada);
 		}
 		
 		Usuario editarUsuario = usuarioRepository.save(usuario);
